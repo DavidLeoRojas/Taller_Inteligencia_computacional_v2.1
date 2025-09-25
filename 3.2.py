@@ -563,7 +563,7 @@ Para uso práctico, considerar intervalos de confianza y validación continua co
         
         # Crear Treeview para mostrar los datos
         columns = list(self.df.columns)
-        tree = ttk.Treeview(table_frame, columns=columns, show='headings', height=25)  # Aumentar altura
+        tree = ttk.Treeview(table_frame, columns=columns, show='headings', height=25)
         
         # Configurar columnas
         for col in columns:
@@ -575,8 +575,8 @@ Para uso práctico, considerar intervalos de confianza y validación continua co
         h_scrollbar = ttk.Scrollbar(table_frame, orient=tk.HORIZONTAL, command=tree.xview)
         tree.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
         
-        # Añadir TODOS los datos a la tabla (no solo las primeras 20 filas)
-        for i, row in self.df.iterrows():  # Cambiado de .head(20) a .iterrows()
+        # Añadir TODOS los datos a la tabla
+        for i, row in self.df.iterrows():
             tree.insert('', tk.END, values=list(row))
         
         # Empaquetar widgets
@@ -607,7 +607,7 @@ Para uso práctico, considerar intervalos de confianza y validación continua co
         ax = fig.add_subplot(111)
         
         # Histograma con curva de densidad
-        n_bins = min(30, len(self.df) // 5)  # Ajustar número de bins según tamaño del dataset
+        n_bins = min(30, len(self.df) // 5)
         ax.hist(self.df['MEDV'], bins=n_bins, density=True, alpha=0.7, 
                 color='skyblue', edgecolor='black', linewidth=0.5)
         
@@ -676,7 +676,7 @@ Para uso práctico, considerar intervalos de confianza y validación continua co
         canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
         
         # Mostrar correlaciones más importantes con MEDV
-        medv_corr = corr_matrix['MEDV'].sort_values(key=abs, ascending=False)[1:]  # Excluir autocorrelación
+        medv_corr = corr_matrix['MEDV'].sort_values(key=abs, ascending=False)[1:]
         top_corr_text = "Top 5 Correlaciones con MEDV:\n"
         for i, (var, corr) in enumerate(medv_corr.head().items()):
             top_corr_text += f"{i+1}. {var}: {corr:.3f}\n"
@@ -686,82 +686,169 @@ Para uso práctico, considerar intervalos de confianza y validación continua co
         info_label.pack(pady=5)
     
     def plot_rooms_vs_price(self):
-        """Gráfico de dispersión: Habitaciones vs Precio"""
+        """Gráfico de dispersión mejorado: Habitaciones vs Precio"""
         fig = Figure(figsize=(6, 4), dpi=100)
         ax = fig.add_subplot(111)
         
-        # Scatter plot
-        scatter = ax.scatter(self.df['RM'], self.df['MEDV'], alpha=0.6, s=50, 
-                            c=self.df['MEDV'], cmap='viridis', edgecolors='black', linewidth=0.5)
+        # MEJORA 1: Categorizar precios y usar colores intuitivos como en tu imagen
+        # Crear categorías de precio
+        price_low = self.df['MEDV'].quantile(0.33)
+        price_high = self.df['MEDV'].quantile(0.67)
         
-        # Línea de tendencia
+        # Definir colores para cada categoría (como en tu imagen)
+        colors = []
+        price_categories = []
+        for price in self.df['MEDV']:
+            if price <= price_low:
+                colors.append('#5975A4')  # Azul para precios bajos
+                price_categories.append('low')
+            elif price <= price_high:
+                colors.append('#5F9E6E')  # Verde para precios medios  
+                price_categories.append('med')
+            else:
+                colors.append('#CC8963')  # Naranja/salmón para precios altos
+                price_categories.append('high')
+        
+        # Scatter plot con colores por categorías
+        scatter = ax.scatter(self.df['RM'], self.df['MEDV'], 
+                           alpha=0.7, s=60, 
+                           c=colors,
+                           edgecolors='black', 
+                           linewidth=0.5)
+        
+        # MEJORA 2: Línea de tendencia más visible
         z = np.polyfit(self.df['RM'], self.df['MEDV'], 1)
         p = np.poly1d(z)
-        ax.plot(self.df['RM'], p(self.df['RM']), "r--", alpha=0.8, linewidth=2,
-                label=f'Tendencia: y = {z[0]:.1f}x + {z[1]:.1f}')
+        ax.plot(self.df['RM'], p(self.df['RM']), 
+               color='red', linestyle='-', linewidth=3, alpha=0.8,
+               label=f'Tendencia: y = {z[0]:.1f}x + {z[1]:.1f}')
         
-        ax.set_title('Relación: Número de Habitaciones vs Precio de Vivienda', 
-                     fontsize=16, fontweight='bold')
-        ax.set_xlabel('Número promedio de habitaciones (RM)', fontsize=12)
-        ax.set_ylabel('Valor medio vivienda - MEDV (miles USD)', fontsize=12)
-        ax.legend(fontsize=11)
-        ax.grid(True, alpha=0.3)
+        # MEJORA 3: Títulos y etiquetas más claros
+        ax.set_title('Número de Habitaciones vs Precio de Vivienda\n(Relación Positiva Fuerte)', 
+                     fontsize=14, fontweight='bold', pad=15)
+        ax.set_xlabel('Número promedio de habitaciones (RM)', fontsize=12, fontweight='bold')
+        ax.set_ylabel('Precio vivienda - MEDV (miles USD)', fontsize=12, fontweight='bold')
         
-        # Barra de colores
-        cbar = fig.colorbar(scatter, ax=ax)
-        cbar.set_label('Precio (miles USD)', rotation=270, labelpad=20)
+        # MEJORA 4: Grid más sutil
+        ax.grid(True, alpha=0.3, linestyle='--')
         
-        # Estadísticas de correlación
+        # MEJORA 5: Leyenda de colores como en tu imagen
+        from matplotlib.patches import Patch
+        legend_elements = [
+            Patch(facecolor='#5975A4', label=f'Bajo (≤${price_low:.1f}k)'),
+            Patch(facecolor='#5F9E6E', label=f'Medio (${price_low:.1f}k-${price_high:.1f}k)'),
+            Patch(facecolor='#CC8963', label=f'Alto (≥${price_high:.1f}k)'),
+            ax.lines[0]  # Línea de tendencia
+        ]
+        ax.legend(handles=legend_elements, fontsize=10, loc='lower right', title='PRICE_CAT')
+        
+        # MEJORA 6: Estadísticas más prominentes
         correlation = self.df['RM'].corr(self.df['MEDV'])
         r_squared = correlation ** 2
         
-        stats_text = f'Correlación: {correlation:.3f}\n'
-        stats_text += f'R²: {r_squared:.3f}\n'
-        stats_text += f'Interpretación: {r_squared*100:.1f}% de la\nvariabilidad explicada'
+        # Crear caja de estadísticas más llamativa
+        stats_text = f'ESTADÍSTICAS:\n'
+        stats_text += f'Correlación: {correlation:.3f}\n'
+        stats_text += f'R² explicado: {r_squared*100:.1f}%\n'
+        stats_text += f'Relación: MUY FUERTE'
         
+        # Caja de estadísticas con mejor contraste
         ax.text(0.02, 0.98, stats_text, transform=ax.transAxes, fontsize=11,
-                verticalalignment='top', bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.8))
+                verticalalignment='top', fontweight='bold',
+                bbox=dict(boxstyle='round,pad=0.5', facecolor='lightgreen', 
+                         edgecolor='darkgreen', linewidth=2, alpha=0.9))
         
         canvas = FigureCanvasTkAgg(fig, self.plot_frame)
         canvas.draw()
         canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
     
     def plot_lstat_vs_price(self):
-        """Gráfico de dispersión: LSTAT vs Precio"""
+        """Gráfico de dispersión mejorado: LSTAT vs Precio"""
         fig = Figure(figsize=(6, 4), dpi=100)
         ax = fig.add_subplot(111)
         
-        # Scatter plot
-        scatter = ax.scatter(self.df['LSTAT'], self.df['MEDV'], alpha=0.6, s=50,
-                            c=self.df['CRIM'], cmap='Reds', edgecolors='black', linewidth=0.5)
+        # MEJORA 1: Usar el mismo esquema de colores por categorías de precio
+        price_low = self.df['MEDV'].quantile(0.33)
+        price_high = self.df['MEDV'].quantile(0.67)
         
-        # Línea de tendencia polinomial
+        # Definir colores consistentes con la gráfica de habitaciones
+        colors = []
+        price_categories = []
+        for price in self.df['MEDV']:
+            if price <= price_low:
+                colors.append('#5975A4')  # Azul para precios bajos
+                price_categories.append('low')
+            elif price <= price_high:
+                colors.append('#5F9E6E')  # Verde para precios medios  
+                price_categories.append('med')
+            else:
+                colors.append('#CC8963')  # Naranja/salmón para precios altos
+                price_categories.append('high')
+        
+        # Scatter plot con colores por categorías
+        scatter = ax.scatter(self.df['LSTAT'], self.df['MEDV'], 
+                           alpha=0.7, s=60,
+                           c=colors,
+                           edgecolors='black', 
+                           linewidth=0.5)
+        
+        # MEJORA 2: Línea de tendencia más clara con curva polinomial
         z = np.polyfit(self.df['LSTAT'], self.df['MEDV'], 2)
         p = np.poly1d(z)
         x_smooth = np.linspace(self.df['LSTAT'].min(), self.df['LSTAT'].max(), 100)
-        ax.plot(x_smooth, p(x_smooth), "r-", alpha=0.8, linewidth=2,
-                label='Tendencia cuadrática')
+        ax.plot(x_smooth, p(x_smooth), 
+               color='darkred', linestyle='-', linewidth=3, alpha=0.9,
+               label='Tendencia cuadrática')
         
-        ax.set_title('Relación: Estatus Socioeconómico vs Precio de Vivienda', 
-                     fontsize=16, fontweight='bold')
-        ax.set_xlabel('% Población estatus socioeconómico bajo (LSTAT)', fontsize=12)
-        ax.set_ylabel('Valor medio vivienda - MEDV (miles USD)', fontsize=12)
-        ax.legend(fontsize=11)
-        ax.grid(True, alpha=0.3)
+        # MEJORA 3: Títulos más descriptivos
+        ax.set_title('Nivel Socioeconómico vs Precio de Vivienda\n(Relación Negativa No-Lineal)', 
+                     fontsize=14, fontweight='bold', pad=15)
+        ax.set_xlabel('% Población de bajo estatus socioeconómico (LSTAT)', fontsize=12, fontweight='bold')
+        ax.set_ylabel('Precio vivienda - MEDV (miles USD)', fontsize=12, fontweight='bold')
         
-        # Barra de colores
-        cbar = fig.colorbar(scatter, ax=ax)
-        cbar.set_label('Tasa criminalidad (CRIM)', rotation=270, labelpad=20)
+        # MEJORA 4: Grid y leyenda consistente
+        ax.grid(True, alpha=0.3, linestyle='--')
         
-        # Estadísticas
+        # Leyenda de colores consistente con la otra gráfica
+        from matplotlib.patches import Patch
+        legend_elements = [
+            Patch(facecolor='#5975A4', label=f'Bajo (≤${price_low:.1f}k)'),
+            Patch(facecolor='#5F9E6E', label=f'Medio (${price_low:.1f}k-${price_high:.1f}k)'),
+            Patch(facecolor='#CC8963', label=f'Alto (≥${price_high:.1f}k)'),
+            ax.lines[0]  # Línea de tendencia
+        ]
+        ax.legend(handles=legend_elements, fontsize=10, loc='upper right', title='PRICE_CAT')
+        
+        # MEJORA 5: Estadísticas mejoradas
         correlation = self.df['LSTAT'].corr(self.df['MEDV'])
         
-        stats_text = f'Correlación lineal: {correlation:.3f}\n'
-        stats_text += f'Relación: Fuertemente negativa\n'
-        stats_text += f'Patrón: No-lineal (exponencial)'
+        stats_text = f'ANÁLISIS SOCIOECONÓMICO:\n'
+        stats_text += f'Correlación: {correlation:.3f}\n'
+        stats_text += f'Tipo: FUERTEMENTE NEGATIVA\n'
+        stats_text += f'Forma: EXPONENCIAL\n'
+        stats_text += f'A mayor pobreza, menor precio'
         
-        ax.text(0.02, 0.98, stats_text, transform=ax.transAxes, fontsize=11,
-                verticalalignment='top', bbox=dict(boxstyle='round', facecolor='lightyellow', alpha=0.8))
+        # Caja de estadísticas con colores que reflejen la relación negativa
+        ax.text(0.02, 0.98, stats_text, transform=ax.transAxes, fontsize=10,
+                verticalalignment='top', fontweight='bold',
+                bbox=dict(boxstyle='round,pad=0.5', facecolor='lightyellow', 
+                         edgecolor='orange', linewidth=2, alpha=0.9))
+        
+        # MEJORA 6: Marcadores de zonas socioeconómicas más sutiles
+        # Agregar líneas verticales para delimitar zonas
+        ax.axvline(10, color='green', linestyle=':', alpha=0.5, linewidth=1.5)
+        ax.axvline(20, color='orange', linestyle=':', alpha=0.5, linewidth=1.5)
+        
+        # Etiquetas para las zonas más discretas
+        ax.text(5, ax.get_ylim()[1]*0.95, 'Zona\nPróspera', ha='center', 
+               fontweight='bold', color='darkgreen', fontsize=9,
+               bbox=dict(boxstyle='round', facecolor='lightgreen', alpha=0.6))
+        ax.text(15, ax.get_ylim()[1]*0.95, 'Zona\nMixta', ha='center', 
+               fontweight='bold', color='darkorange', fontsize=9,
+               bbox=dict(boxstyle='round', facecolor='lightyellow', alpha=0.6))
+        ax.text(30, ax.get_ylim()[1]*0.95, 'Zona\nDesfavorecida', ha='center', 
+               fontweight='bold', color='darkred', fontsize=9,
+               bbox=dict(boxstyle='round', facecolor='lightcoral', alpha=0.6))
         
         canvas = FigureCanvasTkAgg(fig, self.plot_frame)
         canvas.draw()
@@ -864,7 +951,7 @@ Para uso práctico, considerar intervalos de confianza y validación continua co
         colors = ['#1f77b4', '#ff7f0e', '#2ca02c']
         
         bars = ax1.bar(models, r2_scores, color=colors, alpha=0.8, edgecolor='black')
-        ax1.set_title('Comparación R² - Modelos de Regresión', fontsize=14, fontweight='bold')
+        ax1.set_title('Comparación R² - M. Regresión', fontsize=14, fontweight='bold')
         ax1.set_ylabel('Coeficiente de Determinación (R²)', fontsize=12)
         ax1.set_ylim(0, 1)
         ax1.grid(True, axis='y', alpha=0.3)
@@ -880,7 +967,7 @@ Para uso práctico, considerar intervalos de confianza y validación continua co
         mae_scores = [self.results[model]['MAE'] for model in models]
         
         bars2 = ax2.bar(models, mae_scores, color=colors, alpha=0.8, edgecolor='black')
-        ax2.set_title('Comparación MAE - Error Absoluto Medio', fontsize=14, fontweight='bold')
+        ax2.set_title('Comparación MAE - E Absoluto M', fontsize=14, fontweight='bold')
         ax2.set_ylabel('MAE (miles USD)', fontsize=12)
         ax2.grid(True, axis='y', alpha=0.3)
         
@@ -913,8 +1000,8 @@ Para uso práctico, considerar intervalos de confianza y validación continua co
             return
             
         models = {
-            "Regresión Lineal": LinearRegression(),
-            "Ridge Regression": Ridge(alpha=1.0),
+            "R. Lineal": LinearRegression(),
+            "Ridge R.": Ridge(alpha=1.0),
             "Random Forest": RandomForestRegressor(n_estimators=100, random_state=42, max_depth=10)
         }
         
@@ -922,15 +1009,13 @@ Para uso práctico, considerar intervalos de confianza y validación continua co
         best_r2 = -np.inf
         
         for name, model in models.items():
-            if name in ["Ridge Regression"]:
+            if name in ["Ridge R."]:
                 model.fit(self.X_train_scaled, self.y_train)
                 y_pred = model.predict(self.X_test_scaled)
-                # Validación cruzada
                 cv_scores = cross_val_score(model, self.X_train_scaled, self.y_train, cv=min(5, len(self.X_train)), scoring='r2')
             else:
                 model.fit(self.X_train, self.y_train)
                 y_pred = model.predict(self.X_test)
-                # Validación cruzada
                 cv_scores = cross_val_score(model, self.X_train, self.y_train, cv=min(5, len(self.X_train)), scoring='r2')
             
             # Calcular métricas
